@@ -29,4 +29,9 @@ npm run dev    # http://localhost:3000
 npm run build  # out/ に静的ファイルを出力
 ```
 
-`main` ブランチにプッシュすると、GitHub Actions がビルドして GitHub Pages に公開します（リポジトリの Settings → Pages で Source を「GitHub Actions」にしてください）。
+`main` ブランチにプッシュすると、GitHub Actions がビルドして次の2か所に公開します。
+
+- GitHub Pages: https://renly24.github.io/edu-ipv4-binary-quiz/ （Settings → Pages で Source を「GitHub Actions」にしておく）
+- FTP サーバー: http://e.gmobb.jp/omaesensei/digital/edu-ipv4-binary-quiz/ （`.github/workflows/deploy-ftp.yml`）
+
+FTP へのアップロードには、リポジトリの Settings → Secrets and variables → Actions に `FTP_HOST`・`FTP_USER`・`FTP_PASS` の3つを登録しておく必要があります（edu-network-simulator と同じ値）。

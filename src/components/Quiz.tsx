@@ -11,6 +11,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import AddressNote from "./AddressNote";
 import BitTable from "./BitTable";
 import {
   LEVELS,
@@ -296,6 +297,7 @@ export default function Quiz() {
               1 が立っているけたの重みをたし算しよう。
             </Typography>
           )}
+          {current && <AddressNote octets={question.octets} />}
         </Box>
       )}
 

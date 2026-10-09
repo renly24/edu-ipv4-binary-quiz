@@ -6,12 +6,20 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import { HOST_COLOR, NETWORK_COLOR, SplitBits } from "./AddressNote";
 import BitTable from "./BitTable";
 import { toBinary8 } from "@/lib/ipv4";
 
 const OCTET_COLORS = ["#1565c0", "#2e7d32", "#ef6c00", "#6a1b9a"];
 const EXAMPLE = [192, 168, 1, 10];
 const PREFIX_VALUES = [128, 192, 224, 240, 248, 252, 254, 255];
+const ADDRESS_KINDS = [
+  ["10.0.0.0〜10.255.255.255", "プライベートアドレス（会社・学校などのLAN内）"],
+  ["172.16.0.0〜172.31.255.255", "プライベートアドレス（組織のLAN内）"],
+  ["192.168.0.0〜192.168.255.255", "プライベートアドレス（家庭のWi-Fiなど）"],
+  ["127.0.0.0〜127.255.255.255", "ループバックアドレス（自分自身）"],
+  ["上記以外", "グローバルアドレス（インターネット上で使う）"],
+];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -96,6 +104,50 @@ export default function Lesson() {
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           ほかにも「11111111 = 255」から「0のけたの重みを引く」と速く計算できることがあります（例：11110111 = 255 − 8 = 247）。
+        </Typography>
+      </Section>
+
+      <Section title="④ IPアドレスの各部分：ネットワーク部とホスト部">
+        <Typography variant="body2" paragraph>
+          IPアドレスは、前半の <strong style={{ color: NETWORK_COLOR }}>ネットワーク部</strong>（どのネットワークか＝住所の「町名」）と、後半の{" "}
+          <strong style={{ color: HOST_COLOR }}>ホスト部</strong>（そのネットワークの中のどの機器か＝「番地」）に分かれています。
+          どこで分かれるかは <strong>サブネットマスク</strong> で決まり、マスクの 1 の部分がネットワーク部、0 の部分がホスト部です。
+        </Typography>
+        <Box sx={{ overflowX: "auto", mb: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            IPアドレス 192.168.1.10
+          </Typography>
+          <SplitBits octets={EXAMPLE} prefix={24} />
+          <Typography variant="caption" color="text.secondary">
+            サブネットマスク 255.255.255.0（/24）
+          </Typography>
+          <SplitBits octets={[255, 255, 255, 0]} prefix={24} />
+        </Box>
+        <Typography variant="body2" paragraph>
+          この例では、左24ビット「192.168.1」がネットワーク部、残り8ビット「10」がホスト部です。同じネットワークにつながる機器は、
+          192.168.1.1、192.168.1.2 … のようにホスト部だけがちがいます。ホスト部がすべて0（192.168.1.0）はネットワークそのもの、
+          すべて1（192.168.1.255）はネットワーク内の全機器あて（ブロードキャスト）を表すので、機器には使えません。
+        </Typography>
+        <Typography variant="body2" fontWeight={700} gutterBottom>
+          アドレスの種類
+        </Typography>
+        <Box>
+          {ADDRESS_KINDS.map(([range, kind]) => (
+            <Box
+              key={range}
+              sx={{ display: "flex", flexWrap: "wrap", columnGap: 2, py: 0.75, borderTop: 1, borderColor: "divider" }}
+            >
+              <Typography variant="body2" sx={{ fontFamily: "monospace", minWidth: { sm: 260 } }}>
+                {range}
+              </Typography>
+              <Typography variant="body2" fontWeight={700}>
+                {kind}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          練習問題では、答え合わせのあとに「このアドレスについて」でこれらの説明が出ます。
         </Typography>
       </Section>
     </Box>

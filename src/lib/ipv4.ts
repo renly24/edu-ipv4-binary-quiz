@@ -93,3 +93,90 @@ export function parseOctet(input: string): number | null {
   const n = Number(s);
   return n <= 255 ? n : null;
 }
+
+export type AddressInfo = {
+  /** アドレスの種類（見出し） */
+  kind: string;
+  /** 種類の説明 */
+  description: string;
+  /** ネットワーク部の長さ（ビット）。2進数を色分けするのに使う */
+  prefix: number;
+  /** ネットワーク部・ホスト部の説明 */
+  parts: string;
+};
+
+/** 左から1が続くサブネットマスクなら、1の個数を返す。そうでなければ null */
+export function maskPrefix(octets: number[]): number | null {
+  if (octets.length !== 4 || octets[0] !== 255) return null;
+  const n = octets.reduce((acc, o) => acc * 256 + o, 0);
+  const inverted = 0xffffffff - n;
+  if ((inverted & (inverted + 1)) !== 0) return null;
+  return 32 - Math.log2(inverted + 1);
+}
+
+// 例として使うサブネットマスク。家庭や学校のLANでよく使われる /24 を想定する
+const ASSUMED_PREFIX = 24;
+
+/** IPv4アドレスがどんな種類か、どこがネットワーク部・ホスト部かを説明する */
+export function describeAddress(octets: number[]): AddressInfo {
+  const prefix = maskPrefix(octets);
+  if (prefix !== null) {
+    const hostBits = 32 - prefix;
+    return {
+      kind: `サブネットマスク（/${prefix}）`,
+      description:
+        "IPアドレスと組にして使い、どこまでがネットワーク部かを表す値です。左から1が連続し、途中から0だけになります。",
+      prefix,
+      parts: `1が${prefix}個 → IPアドレスの左${prefix}ビットがネットワーク部、残り${hostBits}ビットがホスト部になります（つなげられる機器は最大 2^${hostBits} − 2 = ${(2 ** hostBits - 2).toLocaleString()} 台）。`,
+    };
+  }
+
+  const [a, b, , d] = octets;
+  let kind: string;
+  let description: string;
+  if (a === 10) {
+    kind = "プライベートアドレス（10.0.0.0〜10.255.255.255）";
+    description = "会社や学校など、大きな組織のLANの中だけで使うアドレスです。インターネット上では使われません。";
+  } else if (a === 172 && b >= 16 && b <= 31) {
+    kind = "プライベートアドレス（172.16.0.0〜172.31.255.255）";
+    description = "組織のLANの中だけで使うアドレスです。インターネット上では使われません。";
+  } else if (a === 192 && b === 168) {
+    kind = "プライベートアドレス（192.168.0.0〜192.168.255.255）";
+    description = "家庭のWi-Fiルータなど、小さなLANでよく使われるアドレスです。インターネット上では使われません。";
+  } else if (a === 127) {
+    return {
+      kind: "ループバックアドレス（127.0.0.0〜127.255.255.255）",
+      description: "自分自身のコンピュータを指す特別なアドレスです。",
+      prefix: 8,
+      parts: "最初の8ビットが 01111111（127）なら、残りの部分が何であっても自分自身を指します。",
+    };
+  } else if (a === 169 && b === 254) {
+    kind = "リンクローカルアドレス（169.254.0.0〜169.254.255.255）";
+    description = "DHCPでアドレスをもらえなかったときに、機器が自分で付けるアドレスです。";
+  } else if (a >= 224 && a <= 239) {
+    kind = "マルチキャストアドレス（224.0.0.0〜239.255.255.255）";
+    description = "決まったグループの機器にまとめて送るための特別なアドレスです。";
+  } else if (a >= 240) {
+    kind = "予約済みアドレス（240.0.0.0〜255.255.255.255）";
+    description = "将来のためなどに予約されていて、ふつうの機器には使われないアドレスです。";
+  } else {
+    kind = "グローバルアドレス";
+    description = "インターネット上で使われる、世界で1つだけのアドレスです。";
+  }
+
+  const network = octets.slice(0, 3).join(".");
+  let parts = `サブネットマスクが 255.255.255.0（/${ASSUMED_PREFIX}）なら、左3つ「${network}」がネットワーク部（どのネットワークか）、最後の「${d}」がホスト部（そのネットワークの中のどの機器か）です。`;
+  if (d === 0) parts += " ホスト部がすべて0なので、機器ではなくネットワークそのものを表すアドレスになります。";
+  if (d === 255) parts += " ホスト部がすべて1なので、ネットワーク内の全機器あての「ブロードキャストアドレス」になります。";
+
+  return { kind, description, prefix: ASSUMED_PREFIX, parts };
+}
+
+/** 1オクテットの値が、サブネットマスクでよく出る値ならその説明を返す */
+export function describeOctet(n: number): string | null {
+  const ones = toBinary8(n).indexOf("0");
+  if (n === 0) return "00000000 = 0 は、サブネットマスクのホスト部側でよく出る値です。";
+  if (ones === -1) return "11111111 = 255 は、8ビットで表せる最大の値です。サブネットマスクでよく出ます。";
+  if (/^1+0+$/.test(toBinary8(n))) return `左から1が${ones}個続く形で、サブネットマスクでよく出る値です。`;
+  return null;
+}

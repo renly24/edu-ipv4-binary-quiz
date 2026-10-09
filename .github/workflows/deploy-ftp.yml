@@ -72,6 +72,11 @@ jobs:
           FTP_USER: ${{ secrets.FTP_USER }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
         run: |
+          # シークレットを貼り付けたときに末尾へ入った改行・空白を取り除く
+          # （改行が残ると lftp のコマンドが途中で切れて接続できない）
+          FTP_HOST="${FTP_HOST//[[:space:]]/}"
+          FTP_USER="${FTP_USER//[[:space:]]/}"
+          export LFTP_PASSWORD="${LFTP_PASSWORD%%[$'\r\n']*}"
           # --delete はアップロード先フォルダーの中だけに効く（他の教材には触れない）
           lftp -c "
             set net:timeout 30; set net:max-retries 2;

@@ -1,9 +1,9 @@
 export const WEIGHTS = [128, 64, 32, 16, 8, 4, 2, 1] as const;
 
-export type Level = 1 | 2 | 3;
+export type Level = 1 | 2 | 3 | 4;
 
 export type Question = {
-  /** 4つのオクテット（10進数）。レベル1では1つだけ */
+  /** 4つのオクテット（10進数）。レベル1では1つだけ。レベル4ではサブネットマスク */
   octets: number[];
   level: Level;
 };
@@ -24,6 +24,11 @@ export const LEVELS: { level: Level; title: string; description: string }[] = [
     title: "レベル3：区切りなし",
     description: "ドットのない32けたの2進数を、8けたずつに区切ってから直す",
   },
+  {
+    level: 4,
+    title: "レベル4：サブネットマスク",
+    description: "10進数のサブネットマスクを2進数に直し、ネットワーク部とホスト部が何けたかを答える",
+  },
 ];
 
 export const QUESTIONS_PER_SET = 10;
@@ -38,13 +43,37 @@ export function bitsOf(n: number): number[] {
 
 /** 問題文として表示する2進数表記 */
 export function formatQuestion(q: Question): string {
+  if (q.level === 4) return q.octets.join(".");
   const bins = q.octets.map(toBinary8);
   if (q.level === 3) return bins.join("");
   return bins.join(".");
 }
 
 export function formatAnswer(q: Question): string {
+  if (q.level === 4) {
+    const prefix = prefixOfMask(q.octets);
+    return `${q.octets.map(toBinary8).join(".")}（ネットワーク部 ${prefix} けた／ホスト部 ${32 - prefix} けた）`;
+  }
   return q.octets.join(".");
+}
+
+/** プレフィックス長（左から並ぶ1の個数）からサブネットマスクを作る */
+export function maskFromPrefix(prefix: number): number[] {
+  const mask = (0xffffffff << (32 - prefix)) >>> 0;
+  return [24, 16, 8, 0].map((s) => (mask >>> s) & 255);
+}
+
+/** サブネットマスクの1の個数（ネットワーク部のけた数） */
+export function prefixOfMask(octets: number[]): number {
+  return octets.map(toBinary8).join("").split("1").length - 1;
+}
+
+// よく使われるマスク。ときどき多めに出す
+const COMMON_PREFIXES = [8, 16, 24];
+
+function randomMask(): number[] {
+  const prefix = Math.random() < 0.2 ? COMMON_PREFIXES[randomInt(COMMON_PREFIXES.length)] : 8 + randomInt(23);
+  return maskFromPrefix(prefix);
 }
 
 // サブネットマスクなどでよく見る値。ときどき混ぜて出題する
@@ -66,9 +95,7 @@ function randomAddress(): number[] {
   if (r < 0.4) return [172, 16 + randomInt(16), randomInt(256), 1 + randomInt(254)];
   if (r < 0.5) {
     // サブネットマスク
-    const prefix = 8 + randomInt(23);
-    const mask = (0xffffffff << (32 - prefix)) >>> 0;
-    return [24, 16, 8, 0].map((s) => (mask >>> s) & 255);
+    return randomMask();
   }
   return [1 + randomInt(223), randomOctet(), randomOctet(), randomOctet()];
 }
@@ -77,13 +104,27 @@ export function makeQuestions(level: Level, count = QUESTIONS_PER_SET): Question
   const seen = new Set<string>();
   const list: Question[] = [];
   while (list.length < count) {
-    const octets = level === 1 ? [randomOctet()] : randomAddress();
+    const octets = level === 1 ? [randomOctet()] : level === 4 ? randomMask() : randomAddress();
     const key = octets.join(".");
     if (seen.has(key)) continue;
     seen.add(key);
     list.push({ octets, level });
   }
   return list;
+}
+
+/** 入力欄の文字列を8けたの2進数として読む。読めなければ null */
+export function parseBinary8(input: string): number | null {
+  const s = input.trim();
+  return /^[01]{8}$/.test(s) ? parseInt(s, 2) : null;
+}
+
+/** 入力欄の文字列を0〜32のけた数として読む。読めなければ null */
+export function parseBitCount(input: string): number | null {
+  const s = input.trim();
+  if (!/^\d{1,2}$/.test(s)) return null;
+  const n = Number(s);
+  return n <= 32 ? n : null;
 }
 
 /** 入力欄の文字列を0〜255の整数として読む。読めなければ null */

@@ -7,6 +7,10 @@ import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
@@ -106,6 +110,7 @@ export default function Quiz() {
   const [hint, setHint] = useState(false);
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [finishedAt, setFinishedAt] = useState<Date | null>(null);
+  const [confirmQuit, setConfirmQuit] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const question = questions[index];
@@ -148,15 +153,14 @@ export default function Quiz() {
 
   function finish() {
     setFinishedAt(new Date());
+    setConfirmQuit(false);
     setPhase("result");
   }
 
+  // window.confirm はブラウザや学校の環境によってはブロックされて何も起きないので、画面内のダイアログで確認する
   function quit() {
-    if (records.length === 0) {
-      setPhase("menu");
-      return;
-    }
-    if (window.confirm("ここで終わりにして、今までの結果を表示しますか？")) finish();
+    setConfirmQuit(false);
+    finish();
   }
 
   function next() {
@@ -195,7 +199,7 @@ export default function Quiz() {
     return (
       <Box>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          レベルを選んでスタート。1セット {QUESTIONS_PER_SET} 問です（途中でやめても、そこまでの正解率が出ます）。
+          レベルを選んでスタート。1セット {QUESTIONS_PER_SET} 問です（「やめる」を押すと、そこまでの正解率が出ます）。
         </Typography>
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
           {LEVELS.map((l) => (
@@ -219,7 +223,7 @@ export default function Quiz() {
 
   if (phase === "result") {
     const score = records.filter((r) => r.correct).length;
-    const rate = Math.round((score / records.length) * 100);
+    const rate = records.length === 0 ? 0 : Math.round((score / records.length) * 100);
     const quitEarly = records.length < questions.length;
     const levelInfo = LEVELS.find((l) => l.level === level)!;
     return (
@@ -234,7 +238,7 @@ export default function Quiz() {
           正解率 {rate}%
         </Typography>
         <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
-          {records.length} 問中 {score} 問正解
+          {records.length === 0 ? "まだ答えた問題がありません" : `${records.length} 問中 ${score} 問正解`}
         </Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
           ヒント使用：{records.filter((r) => r.usedHint).length} 問　／　{finishedAt?.toLocaleString("ja-JP")}
@@ -322,9 +326,26 @@ export default function Quiz() {
         <Typography variant="body2" color="text.secondary">
           {LEVELS.find((l) => l.level === level)!.title}　第 {index + 1} 問 / {questions.length}
         </Typography>
-        <Button size="small" onClick={quit} sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
-          {records.length === 0 ? "やめる" : "ここで終わる"}
+        <Button size="small" variant="outlined" color="warning" onClick={() => setConfirmQuit(true)} sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+          やめる
         </Button>
+        <Dialog open={confirmQuit} onClose={() => setConfirmQuit(false)}>
+          <DialogTitle>ここでやめますか？</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              {records.length === 0
+                ? "まだ1問も答えていません。このまま終わると正解率は 0% になります。"
+                : `ここまでの ${records.length} 問の結果（${records.filter((r) => r.correct).length} 問正解）で正解率を表示します。`}
+              {!current && records.length > 0 && " いま解いている問題は数えません。"}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmQuit(false)}>続ける</Button>
+            <Button variant="contained" color="warning" onClick={quit}>
+              やめて結果を見る
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
       <LinearProgress variant="determinate" value={(records.length / questions.length) * 100} sx={{ mb: 1, borderRadius: 1 }} />
       {records.length > 0 && (
